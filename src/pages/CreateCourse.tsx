@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload, Youtube, FileText, Link as LinkIcon, Calendar, UploadCloud } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { useToast } from '../context/ToastContext';
+import { createCourse } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 
 const DELIVERY_OPTIONS = [
   { id: 'daily', label: 'Daily', description: 'One lesson every day' },
@@ -13,16 +16,19 @@ const DELIVERY_OPTIONS = [
 ];
 
 const CreateCourse: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { showToast } = useToast();
+  
   const [step, setStep] = useState(1);
   const [courseType, setCourseType] = useState<'youtube' | 'pdf' | ''>('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [courseName, setCourseName] = useState('');
   const [deliveryOption, setDeliveryOption] = useState('daily');
+  const [deliveryTime, setDeliveryTime] = useState('09:00');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const { showToast } = useToast();
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -60,16 +66,27 @@ const CreateCourse: React.FC = () => {
       return;
     }
     
+    if (!user) {
+      showToast('Please log in to create a course', 'error');
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const course = await createCourse({
+        user_id: user.id,
+        name: courseName,
+        type: courseType,
+        source_url: courseType === 'youtube' ? youtubeUrl : null,
+        delivery_schedule: deliveryOption,
+        delivery_time: deliveryTime,
+        total_lessons: courseType === 'youtube' ? 30 : 20,
+        phone_number: phoneNumber,
+      });
       
-      // Success
-      showToast('Your course has been created successfully!', 'success');
-      // Redirect to dashboard after success
-      window.location.href = '/dashboard';
+      showToast('Course created successfully!', 'success');
+      navigate(`/course/${course.id}`);
     } catch (error) {
       showToast('Failed to create course. Please try again.', 'error');
     } finally {
@@ -246,15 +263,6 @@ const CreateCourse: React.FC = () => {
                 </p>
               </div>
             </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Course Description (Optional)</label>
-              <textarea
-                rows={4}
-                className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-3"
-                placeholder="Describe what learners will get from this course..."
-              />
-            </div>
           </div>
         </div>
       )}
@@ -295,14 +303,11 @@ const CreateCourse: React.FC = () => {
           
           <div className="mt-6">
             <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Time</label>
-            <select 
-              className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
-            >
-              <option value="morning">Morning (8 AM)</option>
-              <option value="noon">Noon (12 PM)</option>
-              <option value="evening">Evening (6 PM)</option>
-              <option value="night">Night (9 PM)</option>
-            </select>
+            <Input
+              type="time"
+              value={deliveryTime}
+              onChange={(e) => setDeliveryTime(e.target.value)}
+            />
             <p className="text-sm text-gray-500 mt-2">
               Lessons will be delivered at this time in your local timezone
             </p>
@@ -357,16 +362,6 @@ const CreateCourse: React.FC = () => {
             <p className="text-sm text-gray-500 mt-2">
               Enter your full phone number with country code (e.g., +1 for US)
             </p>
-            
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <h3 className="font-medium text-gray-900 flex items-center">
-                <InfoIcon className="h-5 w-5 text-blue-500 mr-2" />
-                How It Works
-              </h3>
-              <p className="text-sm text-gray-600 mt-2">
-                After creating your course, you'll receive a welcome message on WhatsApp. Reply "START" to begin receiving your daily micro-lessons.
-              </p>
-            </div>
           </div>
         </div>
       )}
@@ -397,23 +392,5 @@ const CreateCourse: React.FC = () => {
     </div>
   );
 };
-
-function InfoIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg 
-      viewBox="0 0 24 24"
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      {...props}
-    >
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="16" x2="12" y2="12" />
-      <line x1="12" y1="8" x2="12.01" y2="8" />
-    </svg>
-  );
-}
 
 export default CreateCourse;
